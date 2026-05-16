@@ -9,7 +9,6 @@ import sys
 import time
 from pathlib import Path
 
-from .app import run_server
 from .storage import default_home, get_db_path
 
 
@@ -18,6 +17,7 @@ DEFAULT_PORT = 8000
 DEFAULT_SERVER_NAME = "MemTask"
 PID_FILE = "memtask.pid"
 LOG_FILE = "memtask.log"
+COMMANDS = {"start", "stop", "status", "install", "install-help"}
 
 
 def _runtime_dir() -> Path:
@@ -71,70 +71,101 @@ def _mcp_url(host: str, port: int) -> str:
     return f"http://{host}:{port}/mcp"
 
 
-def _stdio_config_text() -> str:
-    return json.dumps(
-        {
-            "mcpServers": {
-                "memtask": {
-                    "command": "memtask",
-                    "args": ["start", "--transport", "stdio"],
-                }
-            }
-        },
-        indent=2,
-    )
+def _color(value: str, code: str, stream=None) -> str:
+    stream = sys.stdout if stream is None else stream
+    if os.environ.get("NO_COLOR") or not stream.isatty():
+        return value
+    return f"\033[{code}m{value}\033[0m"
 
 
-def _http_config_text(host: str, port: int) -> str:
-    return json.dumps(
-        {
-            "mcpServers": {
-                "memtask": {
-                    "url": _mcp_url(host, port),
-                }
-            }
-        },
-        indent=2,
-    )
+def _green(value: str) -> str:
+    return _color(value, "32")
+
+
+def _yellow(value: str) -> str:
+    return _color(value, "33")
+
+
+def _bold_white(value: str) -> str:
+    return _color(value, "1;97")
+
+
+def _bold(value: str) -> str:
+    return _color(value, "1")
+
+
+def _print_main_help() -> None:
+    print(_bold("MemTask"))
+    print("Local MCP task and memory server")
+    print()
+    print(_bold("Usage"))
+    print("  memtask start [--host 127.0.0.1] [--port 8000]")
+    print("  memtask stop")
+    print("  memtask status")
+    print("  memtask install")
+    print()
+    print(_bold("Common"))
+    print("  memtask start        Start the background HTTP server")
+    print("  memtask install      Show Codex MCP install commands")
+    print("  memtask status       Show PID, URL, log path, and DB path")
+    print()
+    print(_bold("Stdio"))
+    print("  memtask start --transport stdio")
+    print("  Use stdio only when your MCP client launches MemTask directly.")
 
 
 def _print_stdio_guidance() -> None:
-    print("MemTask starting over stdio.", file=sys.stderr)
-    print("For MCP clients that launch stdio servers, configure:", file=sys.stderr)
-    print(_stdio_config_text(), file=sys.stderr)
-    print(f"SQLite state: {get_db_path()}", file=sys.stderr)
+    print("MemTask starting over stdio; this process stays attached to the MCP client.", file=sys.stderr)
 
 
 def _print_http_guidance(host: str, port: int, pid: int | None = None) -> None:
-    print("MemTask HTTP server started.")
+    print(f"{_green('OK')} MemTask started")
     if pid is not None:
-        print(f"PID: {pid}")
-    print(f"URL: {_mcp_url(host, port)}")
-    print(f"SQLite state: {get_db_path()}")
-    print(f"Log file: {_log_path()}")
+        print(f"  PID:  {pid}")
+    print(f"  URL:  {_mcp_url(host, port)}")
+    print(f"  Data: {get_db_path()}")
+    print(f"  Logs: {_log_path()}")
     print()
-    print("For MCP clients that connect to HTTP servers, configure:")
-    print(_http_config_text(host, port))
+    print("Add it to your MCP client with:")
+    print("  memtask install")
 
 
-def _print_install_help(host: str = DEFAULT_HOST, port: int = DEFAULT_PORT) -> None:
-    print("MemTask MCP configuration examples")
+def _running_http_url(host: str = DEFAULT_HOST, port: int = DEFAULT_PORT) -> tuple[str, bool]:
+    record = _read_pid_record()
+    if record is None:
+        return _mcp_url(host, port), False
+
+    pid = int(record.get("pid", 0))
+    if not _pid_is_running(pid):
+        _clear_pid_record()
+        return _mcp_url(host, port), False
+
+    return str(record.get("url", _mcp_url(host, port))), True
+
+
+def _print_install(host: str = DEFAULT_HOST, port: int = DEFAULT_PORT) -> None:
+    url, running = _running_http_url(host=host, port=port)
+
+    print(_bold_white("Codex"))
     print()
-    print("Stdio launch configuration:")
-    print(_stdio_config_text())
+    print("stdio server")
+    print("  codex mcp add memtask -- memtask start --transport stdio")
     print()
-    print("HTTP mode:")
-    print(f"  memtask start --transport http --host {host} --port {port}")
-    print()
-    print("HTTP configuration:")
-    print(_http_config_text(host, port))
-    print()
-    print(f"Default SQLite state: {get_db_path()}")
+    print("HTTP server")
+    if not running:
+        print("  memtask start")
+    print(f"  codex mcp add memtask --url {url}")
+
+
+def _run_server(**kwargs) -> None:
+    from .app import run_server
+
+    run_server(**kwargs)
 
 
 def _start_stdio(args: argparse.Namespace) -> None:
     _print_stdio_guidance()
-    run_server(
+    _run_server(
         transport="stdio",
         host=args.host,
         port=args.port,
@@ -147,10 +178,12 @@ def _start_http(args: argparse.Namespace) -> None:
     if record is not None:
         pid = int(record.get("pid", 0))
         if _pid_is_running(pid):
-            print("MemTask HTTP server is already running.")
-            print(f"PID: {pid}")
-            print(f"URL: {record.get('url', _mcp_url(args.host, args.port))}")
-            print(f"Stop it with: memtask stop")
+            print(f"{_yellow('RUNNING')} MemTask is already running")
+            print(f"  PID: {pid}")
+            print(f"  URL: {record.get('url', _mcp_url(args.host, args.port))}")
+            print()
+            print("Stop it with:")
+            print("  memtask stop")
             return
         _clear_pid_record()
 
@@ -209,14 +242,14 @@ def _start(args: argparse.Namespace) -> None:
 def _stop(_: argparse.Namespace) -> None:
     record = _read_pid_record()
     if record is None:
-        print("No MemTask background server is registered.")
-        print("If you are using stdio mode, your MCP client starts and stops MemTask itself.")
+        print(f"{_yellow('STOPPED')} MemTask is not running")
+        print("stdio servers are stopped by the MCP client that launched them.")
         return
 
     pid = int(record.get("pid", 0))
     if not _pid_is_running(pid):
         _clear_pid_record()
-        print("Removed stale MemTask PID file.")
+        print(f"{_yellow('STALE')} Removed old MemTask PID file.")
         return
 
     os.kill(pid, signal.SIGTERM)
@@ -227,42 +260,44 @@ def _stop(_: argparse.Namespace) -> None:
         time.sleep(0.1)
 
     _clear_pid_record()
-    print("MemTask HTTP server stopped.")
-    print("For stdio MCP clients, no stop command is needed; the client owns the server process.")
+    print(f"{_green('OK')} MemTask stopped")
+    print("stdio servers are stopped by the MCP client that launched them.")
 
 
 def _status(_: argparse.Namespace) -> None:
     record = _read_pid_record()
     if record is None:
-        print("MemTask background HTTP server is not running.")
-        print(f"SQLite state: {get_db_path()}")
-        print("For MCP client setup, run: memtask install-help")
+        print(f"{_yellow('STOPPED')} MemTask is not running")
+        print(f"  Data: {get_db_path()}")
+        print()
+        print("Start it with:")
+        print("  memtask start")
         return
 
     pid = int(record.get("pid", 0))
     if not _pid_is_running(pid):
         _clear_pid_record()
-        print("MemTask background HTTP server is not running. Removed stale PID file.")
-        print(f"SQLite state: {get_db_path()}")
+        print(f"{_yellow('STALE')} MemTask was not running; removed old PID file.")
+        print(f"  Data: {get_db_path()}")
         return
 
-    print("MemTask background HTTP server is running.")
-    print(f"PID: {pid}")
-    print(f"URL: {record.get('url')}")
-    print(f"SQLite state: {record.get('db_path', get_db_path())}")
-    print(f"Log file: {record.get('log_file', _log_path())}")
+    print(f"{_green('RUNNING')} MemTask")
+    print(f"  PID:  {pid}")
+    print(f"  URL:  {record.get('url')}")
+    print(f"  Data: {record.get('db_path', get_db_path())}")
+    print(f"  Logs: {record.get('log_file', _log_path())}")
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="memtask")
-    subcommands = parser.add_subparsers(dest="command", required=True)
+    parser = argparse.ArgumentParser(prog="memtask", add_help=False)
+    subcommands = parser.add_subparsers(dest="command")
 
     start = subcommands.add_parser("start", help="Start the MemTask MCP server")
     start.add_argument(
         "--transport",
         choices=("stdio", "http", "streamable-http"),
-        default="stdio",
-        help="Use stdio in the foreground or HTTP as a background server.",
+        default="http",
+        help="Use HTTP as a background server, or stdio when launched by an MCP client.",
     )
     start.add_argument("--host", default=DEFAULT_HOST)
     start.add_argument("--port", type=int, default=DEFAULT_PORT)
@@ -275,20 +310,30 @@ def build_parser() -> argparse.ArgumentParser:
     status = subcommands.add_parser("status", help="Show background server status")
     status.set_defaults(handler=_status)
 
-    install_help = subcommands.add_parser(
-        "install-help",
-        help="Print MCP client configuration examples",
-    )
+    install = subcommands.add_parser("install", help="Show Codex MCP install commands")
+    install.add_argument("--host", default=DEFAULT_HOST)
+    install.add_argument("--port", type=int, default=DEFAULT_PORT)
+    install.set_defaults(handler=lambda args: _print_install(host=args.host, port=args.port))
+
+    install_help = subcommands.add_parser("install-help", help=argparse.SUPPRESS)
     install_help.add_argument("--host", default=DEFAULT_HOST)
     install_help.add_argument("--port", type=int, default=DEFAULT_PORT)
-    install_help.set_defaults(
-        handler=lambda args: _print_install_help(host=args.host, port=args.port)
-    )
+    install_help.set_defaults(handler=lambda args: _print_install(host=args.host, port=args.port))
 
     return parser
 
 
 def main(argv: list[str] | None = None) -> None:
+    argv = sys.argv[1:] if argv is None else argv
+    if not argv or argv in (["-h"], ["--help"]):
+        _print_main_help()
+        return
+
+    if argv[0] not in COMMANDS:
+        print(f"Unknown command: {argv[0]}", file=sys.stderr)
+        print("Run `memtask --help` for usage.", file=sys.stderr)
+        raise SystemExit(2)
+
     parser = build_parser()
     args = parser.parse_args(argv)
     args.handler(args)

@@ -1,83 +1,68 @@
 <p align="center">
-  <img src="docs/assets/memtask-logo.png" alt="MemTask logo" width="220">
+  <img src="https://raw.githubusercontent.com/PlatinumCD/memtask-mcp/master/docs/assets/memtask-logo.png" alt="MemTask logo" width="220">
 </p>
 
 <h1 align="center">MemTask</h1>
 
-MemTask is a local MCP server for developer-built agents that need durable task state and lightweight memory. It combines task planning, dependency tracking, active work selection, completion history, and scoped memories in a small SQLite-backed service. The goal is to give agents a structured place to manage agency: what to do next, what depends on what, and what context should persist across sessions.
+MemTask gives MCP agents a local task list and lightweight memory, backed by SQLite.
 
-## What It Provides
-
-MemTask exposes two local primitives over MCP:
-
-- Tasks: pending work, stable task references, parent/child dependency edges, active task selection, and completed task state.
-- Memories: scoped pieces of context with confidence scores, optional parent memory relationships, tags, and task-memory references.
-
-The server is intentionally local-first. State lives in SQLite, the tool surface is small, and the manager layer can be tested directly without running an MCP transport.
-
-## Quickstart
-
-Install MemTask:
+## Install
 
 ```bash
 pip install MemTask
 ```
 
-Then ask MemTask for the MCP config to add to your agent:
+## Start
 
 ```bash
-memtask install-help
+memtask start
 ```
 
-Most MCP clients should launch MemTask over stdio:
+MemTask starts a local MCP server at:
+
+```text
+http://127.0.0.1:8000/mcp
+```
+
+## Add It To Codex
 
 ```bash
+memtask install
+```
+
+That prints the exact `codex mcp add ...` commands for stdio and HTTP:
+
+```text
+Codex
+
+stdio server
+  codex mcp add memtask -- memtask start --transport stdio
+
+HTTP server
+  memtask start
+  codex mcp add memtask --url http://127.0.0.1:8000/mcp
+```
+
+## Use It
+
+Once connected, your agent gets tools for:
+
+- tasks: add, list, focus, complete, remove, and track dependencies
+- memory: remember, recall, update, and delete scoped context
+
+## Common Commands
+
+```bash
+memtask status
+memtask stop
 memtask start --transport stdio
 ```
 
-If your client connects to a running HTTP server instead, start it in the background:
+## What It Is
 
-```bash
-memtask start --transport http --host 127.0.0.1 --port 8000
-```
+MemTask is a local MCP server for developer-built agents that need durable task state and persistent context. It gives an agent a small workspace for tracking active work, dependency order, completed tasks, and scoped memories across sessions.
 
-For local development from this repo:
-
-```bash
-PYTHONPATH=src python -m memtask start --transport stdio
-```
-
-Useful HTTP commands: `memtask status` and `memtask stop`.
-
-## Storage
-
-Runtime state in this repo is stored in `data/tasks.sqlite`.
-
-When installed outside this repo, MemTask uses `~/.memtask/tasks.sqlite` by default. Set `MEMTASK_DB_PATH` to choose a specific SQLite path.
-
-The server creates the required SQLite tables on startup using `CREATE TABLE IF NOT EXISTS`. There is no migration framework.
-
-## Tools
-
-Task tools:
-
-- `list_tasks`
-- `get_task`
-- `add_task`
-- `add_batch_tasks`
-- `complete_task`
-- `remove_task`
-- `remove_all_tasks`
-- `current_tasks`
-- `set_current_task`
-
-Memory tools:
-
-- `remember`
-- `recall`
-- `get_memory`
-- `update_memory`
-- `delete_memory`
+State is stored locally. In this repo, MemTask uses `data/tasks.sqlite`. When installed outside this repo, it uses `~/.memtask/tasks.sqlite` by default. Set `MEMTASK_DB_PATH` to choose a specific SQLite path.
 
 ## Development
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import sqlite3
+import tempfile
 from pathlib import Path
 
 
@@ -12,7 +13,17 @@ MEMTASK_DB_PATH_ENV = "MEMTASK_DB_PATH"
 
 
 def default_home() -> Path:
-    return Path(os.environ.get(MEMTASK_HOME_ENV, Path.home() / ".memtask")).expanduser()
+    configured = Path(os.environ.get(MEMTASK_HOME_ENV, Path.home() / ".memtask")).expanduser()
+    try:
+        configured.mkdir(parents=True, exist_ok=True)
+        if os.access(configured, os.W_OK):
+            return configured
+    except OSError:
+        pass
+
+    fallback = Path(tempfile.gettempdir()) / f"memtask-{os.getuid()}"
+    fallback.mkdir(parents=True, exist_ok=True)
+    return fallback
 
 
 def resolve_default_db_path() -> Path:
