@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "memtask"
-version = "0.0.1"
+version = "0.0.2"
 description = "A local MCP server for durable agent task state and lightweight memory."
 readme = "README.md"
 requires-python = ">=3.10"
