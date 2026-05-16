@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from memory_task_mcp import storage
+from memtask import storage
 
 
 @pytest.fixture(autouse=True)

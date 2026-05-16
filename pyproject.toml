@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "memtask"
-version = "0.1.0"
+version = "0.0.1"
 description = "A local MCP server for durable agent task state and lightweight memory."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -18,7 +18,7 @@ test = [
 ]
 
 [project.scripts]
-memtask = "memory_task_mcp.cli:main"
+memtask = "memtask.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

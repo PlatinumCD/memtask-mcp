@@ -4,7 +4,7 @@ import asyncio
 import json
 from types import SimpleNamespace
 
-from memory_task_mcp import api
+from memtask import api
 
 
 class FakeMCP:

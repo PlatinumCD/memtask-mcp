@@ -158,7 +158,7 @@ def _start_http(args: argparse.Namespace) -> None:
     command = [
         sys.executable,
         "-m",
-        "memory_task_mcp.app",
+        "memtask.app",
         "--transport",
         "streamable-http",
         "--host",

@@ -15,49 +15,39 @@ MemTask exposes two local primitives over MCP:
 
 The server is intentionally local-first. State lives in SQLite, the tool surface is small, and the manager layer can be tested directly without running an MCP transport.
 
-## Run
+## Quickstart
 
-Install from PyPI once the package is published:
+Install MemTask:
 
 ```bash
 pip install MemTask
 ```
 
-From this repo:
+Then ask MemTask for the MCP config to add to your agent:
 
 ```bash
-PYTHONPATH=src python -m memory_task_mcp start --transport stdio
+memtask install-help
 ```
 
-After installing the package, the console command is available:
+Most MCP clients should launch MemTask over stdio:
 
 ```bash
 memtask start --transport stdio
 ```
 
-For background HTTP transport:
+If your client connects to a running HTTP server instead, start it in the background:
 
 ```bash
 memtask start --transport http --host 127.0.0.1 --port 8000
 ```
 
-Stop the background HTTP server:
+For local development from this repo:
 
 ```bash
-memtask stop
+PYTHONPATH=src python -m memtask start --transport stdio
 ```
 
-Check server status:
-
-```bash
-memtask status
-```
-
-Print MCP client configuration examples:
-
-```bash
-memtask install-help
-```
+Useful HTTP commands: `memtask status` and `memtask stop`.
 
 ## Storage
 
@@ -100,5 +90,5 @@ python -m pytest
 Compile-check the package:
 
 ```bash
-python -m py_compile src/memory_task_mcp/*.py tests/*.py
+python -m py_compile src/memtask/*.py tests/*.py
 ```

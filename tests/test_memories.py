@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from memory_task_mcp import manager
+from memtask import manager
 
 
 def test_remember_recall_get_and_update_memory() -> None:

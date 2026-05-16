@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 
-from memory_task_mcp import cli
+from memtask import cli
 
 
 def test_install_help_prints_stdio_and_http_config(capsys) -> None:
@@ -66,7 +66,7 @@ def test_start_http_spawns_background_process(monkeypatch, tmp_path, capsys) -> 
     assert captured_command["command"][:3] == [
         cli.sys.executable,
         "-m",
-        "memory_task_mcp.app",
+        "memtask.app",
     ]
 
 

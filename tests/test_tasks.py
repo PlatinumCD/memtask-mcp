@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from memory_task_mcp import manager
+from memtask import manager
 
 
 def test_add_list_and_get_task() -> None:
