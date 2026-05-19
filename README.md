@@ -9,7 +9,7 @@ MemTask gives MCP agents a local task list and lightweight memory, backed by SQL
 ## Install
 
 ```bash
-pip install MemTask
+pip install memtask
 ```
 
 ## Start
